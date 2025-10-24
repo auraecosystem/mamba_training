@@ -210,7 +210,6 @@ def main():
         use_muon=args.use_muon,
         muon_lr=args.muon_lr,
         muon_momentum=args.muon_momentum,
-        logits_softcap=args.logits_softcap,
         weight_decay=args.weight_decay
     )
     

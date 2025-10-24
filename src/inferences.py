@@ -155,6 +155,7 @@ def main():
     # Ensure inputs are on the same device as model
     device = next(model.parameters()).device
     inputs = {k: v.to(device) for k, v in inputs.items()}
+    print(f"   • Input IDs shape: {inputs['input_ids'].shape}")
     
     print(f"\n🔍 Input Device Information:")
     print(f"   • Target device: {device}")

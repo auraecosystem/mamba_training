@@ -2,7 +2,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 
 Fine-tune NVIDIA Nemotron models using LoRA (Low-Rank Adaptation) with PyTorch Lightning and Weights & Biases integration.
 
@@ -494,7 +494,9 @@ Contributions are welcome! Please:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the LICENSE file for details.
+
+**Important Note**: AGPL-3.0 is a copyleft license that requires any derivative works or modifications to also be licensed under AGPL-3.0. If you use this software in a network service or web application, you must make the source code available to users.
 
 ## 🙏 Acknowledgments
 

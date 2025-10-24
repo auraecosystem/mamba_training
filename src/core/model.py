@@ -19,8 +19,8 @@ class LitSFT(pl.LightningModule):
         use_muon: bool = False,
         muon_lr: float = 0.02,
         muon_momentum: float = 0.95,
-        logits_softcap: float = 15.0,
-        weight_decay: float = 0.0
+        weight_decay: float = 0.0,
+        compute_loss_func: Optional[callable] = None
     ):
         super().__init__()
         self.model = model
@@ -32,35 +32,46 @@ class LitSFT(pl.LightningModule):
         self.use_muon = use_muon
         self.muon_lr = muon_lr
         self.muon_momentum = muon_momentum
-        self.logits_softcap = logits_softcap
         self.weight_decay = weight_decay
+        self.compute_loss_func = compute_loss_func
         
         # Track training metrics
         self.train_losses = []
         self.num_tokens_seen = 0
 
-    def training_step(self, batch, batch_idx):
-        # Forward pass with manual loss calculation for better control
-        outputs = self.model(**batch)
+    def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        Compute loss following HuggingFace Trainer's approach exactly.
         
-        # Apply logits softcap if specified (similar to nanochat)
-        if hasattr(outputs, 'logits') and self.logits_softcap > 0:
-            logits = outputs.logits
-            logits = self.logits_softcap * torch.tanh(logits / self.logits_softcap)
-            logits = logits.float()  # Use fp32 for loss computation
+        Args:
+            model: The model to compute loss for
+            inputs: Dictionary containing input_ids, attention_mask, labels
+            return_outputs: Whether to return model outputs along with loss
             
-            # Manual cross entropy calculation
-            shift_logits = logits[..., :-1, :].contiguous()
-            shift_labels = batch['labels'][..., 1:].contiguous()
-            loss = F.cross_entropy(
-                shift_logits.view(-1, shift_logits.size(-1)), 
-                shift_labels.view(-1), 
-                ignore_index=-100, 
-                reduction='mean'
-            )
-        else:
-            # Fallback to HuggingFace loss
+        Returns:
+            loss or (loss, outputs) if return_outputs=True
+        """
+        if self.compute_loss_func is not None:
+            # Custom loss function provided (like UnslothSFTTrainer)
+            outputs = model(**inputs)
+            loss = self.compute_loss_func(model, inputs, outputs)
+            return (loss, outputs) if return_outputs else loss
+        
+        # Pure HuggingFace approach: model handles everything
+        outputs = model(**inputs)
+        
+        # Extract loss from outputs (HuggingFace standard)
+        if hasattr(outputs, "loss") and outputs.loss is not None:
             loss = outputs.loss
+        else:
+            raise ValueError("Model did not return a loss and no custom loss function provided")
+        
+        return (loss, outputs) if return_outputs else loss
+
+    def training_step(self, batch, batch_idx):
+        # print(f" • Current training batch index: {batch_idx}")
+        # Use pure HuggingFace-style compute_loss
+        loss = self.compute_loss(self.model, batch, return_outputs=False)
         
         # Count valid tokens for logging
         valid_tokens = (batch['labels'] != -100).sum()

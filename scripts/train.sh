@@ -25,8 +25,8 @@ WANDB_RUN_NAME="${WANDB_RUN_NAME:-sft-$(date +%Y%m%d-%H%M%S)}"
 
 # Training hyperparameters
 MODEL_ID="${MODEL_ID:-nvidia/NVIDIA-Nemotron-Nano-12B-v2}"
-OUTPUT_DIR="${OUTPUT_DIR:-./output/nemotron-sft-trained_en_gsm8k_ver12B}"
-DATA_JSONL="${DATA_JSONL:-./data/vi_gsm8k.jsonl}"
+OUTPUT_DIR="${OUTPUT_DIR:-./output/merged-medqa_reasoning_nemotron_200}"
+DATA_JSONL="${DATA_JSONL:-./data/merged_medqa_reasoning_nemotron_200.jsonl}"
 PRESET="${PRESET:-mlp_only}"
 RANK="${RANK:-8}"
 ALPHA="${ALPHA:-16}"
@@ -160,7 +160,6 @@ CMD="$PYTHON -m src.sft \
   --num-workers ${NUM_WORKERS} \
   --gpu ${GPU_DEVICES} \
   --grad-clip ${GRAD_CLIP} \
-  --logits-softcap ${LOGITS_SOFTCAP} \
   --weight-decay ${WEIGHT_DECAY} \
   --unembedding-lr ${UNEMBEDDING_LR} \
   --embedding-lr ${EMBEDDING_LR} \

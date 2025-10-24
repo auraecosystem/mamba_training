@@ -43,7 +43,7 @@ def main():
         # Write a few fixed examples first
         if args.dataset:
             ds = load_dataset(args.dataset, split="train")
-            for ex in ds:
+            for ex in ds.select(range(200)):
                 system_content = "/no_think"
                 user_content = ex["question"]
                 assistant_content = ex["explanation"]
@@ -62,7 +62,6 @@ def main():
             for i in range(max(0, args.n - len(EXAMPLES))):
                 rec = {"messages": EXAMPLE}
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        #print(f"Wrote {args.n} samples to {out}")
 
 
 if __name__ == "__main__":

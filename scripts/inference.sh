@@ -21,7 +21,7 @@ PYTHON="/home/clara/.conda/envs/mamba_temp/bin/python"
 
 # Default settings
 DEFAULT_OUTPUT_DIR="${PROJECT_ROOT}/output/nemotron-sft-trained"
-DEFAULT_BASE_MODEL="nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+DEFAULT_BASE_MODEL="nvidia/NVIDIA-Nemotron-Nano-12B-v2"
 
 # Parse arguments
 if [ -n "$1" ]; then

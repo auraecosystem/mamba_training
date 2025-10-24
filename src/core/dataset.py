@@ -1,7 +1,7 @@
 from datasets import load_dataset
 from .config import ScriptArgs
 from typing import Optional, List, Dict, Any
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, DataCollatorForLanguageModeling
 from torch.utils.data import Dataset, DataLoader
 import torch 
 
@@ -15,50 +15,57 @@ def load_raw_dataset(args: ScriptArgs):
         return ds
     raise ValueError("Provide --dataset <hf_id> or --data-jsonl <path>")
 
+def format_reasoning_data(example):
+    """
+    Format reasoning/chain-of-thought data cho Nemotron.
+    Giữ nguyên /think và <think></think> tags.
+    """
+    messages = example["messages"]
+    text = ""
+
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "").strip()
+
+        if role == "system":
+            text += f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{content}<|eot_id|>"
+        elif role == "user":
+            text += f"<|start_header_id|>user<|end_header_id|>\n{content}<|eot_id|>"
+        elif role == "assistant":
+            text += f"<|start_header_id|>assistant<|end_header_id|>\n{content}<|eot_id|>"
+
+    text += "<|eot_id|>"
+    return {"text": text}
+
 def build_text_from_messages(messages: List[Dict[str, Any]], tokenizer: AutoTokenizer, use_chat_template: bool = True) -> str:
     """
-    Convert messages to text using tokenizer's chat template.
-    Falls back to simple format if chat template is not available.
+    Convert messages to text using custom Nemotron format for reasoning data.
+    Preserves /think and <think></think> tags.
     
     Args:
         messages: List of message dicts with 'role' and 'content'
         tokenizer: HuggingFace tokenizer
-        use_chat_template: Whether to try using apply_chat_template
+        use_chat_template: Whether to use custom format (always True for reasoning)
     
     Returns:
         Formatted text string
     """
-    if use_chat_template:
-        try:
-            # Use HuggingFace's apply_chat_template (preferred method)
-            # tokenize=False returns the formatted string, not token IDs
-            text = tokenizer.apply_chat_template(
-                messages, 
-                tokenize=False, 
-                add_generation_prompt=False,
-            ) + tokenizer.eos_token
-            return text
-        except Exception:
-            # Fallback to simple format if chat template is not available
-            pass
-    
-    # Fallback format
-    text_parts = []
-    for m in messages:
-        role = m.get("role", "user")
-        content = m.get("content", "")
+    # Use custom Nemotron format for reasoning data
+    text = ""
+
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "").strip()
+
         if role == "system":
-            text_parts.append(f"<|system|>\n{content}<|end|>")
+            text += f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{content}<|eot_id|>"
         elif role == "user":
-            text_parts.append(f"<|user|>\n{content}<|end|>")
+            text += f"<|start_header_id|>user<|end_header_id|>\n{content}<|eot_id|>"
         elif role == "assistant":
-            text_parts.append(f"<|assistant|>\n{content}<|end|>")
-    
-    full_text = "\n".join(text_parts)
-    if tokenizer.eos_token and not full_text.endswith(tokenizer.eos_token):
-        full_text += tokenizer.eos_token
-    
-    return full_text
+            text += f"<|start_header_id|>assistant<|end_header_id|>\n{content}<|eot_id|>"
+
+    text += "<|eot_id|>"
+    return text
 
 
 
@@ -126,31 +133,35 @@ class SFTDataset(Dataset):
         }
 
 
+def get_data_collator(tokenizer: AutoTokenizer, mlm: bool = False):
+    """
+    Sử dụng trực tiếp DataCollatorForLanguageModeling của Hugging Face
+    để đảm bảo logic hoàn toàn chính xác.
+    
+    Args:
+        tokenizer: HuggingFace tokenizer
+        mlm: Whether to use masked language modeling (False for causal LM)
+    
+    Returns:
+        DataCollatorForLanguageModeling instance
+    """
+    return DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=mlm,  # False for causal language modeling (SFT)
+        mlm_probability=0.15 if mlm else None,
+        pad_to_multiple_of=None,
+        return_tensors="pt"
+    )
+
+
+# Deprecated: Giữ lại để tương thích ngược
 def collate_sft(batch: List[Dict[str, Any]], tokenizer: AutoTokenizer):
     """
-    HuggingFace-style collator for causal language modeling.
-    Creates labels by shifting input_ids, matching the standard CLM approach.
+    DEPRECATED: Sử dụng get_data_collator() thay thế.
+    
+    HuggingFace-style collator for causal language modeling using tokenizer.
+    Uses tokenizer.pad() for proper padding and tensor conversion.
     """
-    # Pad to max length in batch
-    max_len = max(len(x["input_ids"]) for x in batch)
-    pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
-    
-    def pad(seq, pad_val):
-        return seq + [pad_val] * (max_len - len(seq))
-    
-    input_ids = torch.tensor([pad(x["input_ids"], pad_id) for x in batch], dtype=torch.long)
-    attention_mask = torch.tensor([pad(x["attention_mask"], 0) for x in batch], dtype=torch.long)
-    
-    # Create labels following HuggingFace approach:
-    # labels = input_ids.clone() where we want to compute loss
-    # labels = -100 where we want to ignore (padding positions)
-    labels = input_ids.clone()
-    
-    # Mask padding tokens in labels
-    labels[labels == pad_id] = -100
-    
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "labels": labels
-    }
+    # Sử dụng DataCollatorForLanguageModeling thay thế
+    data_collator = get_data_collator(tokenizer, mlm=False)
+    return data_collator(batch)
