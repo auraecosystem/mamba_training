@@ -41,7 +41,7 @@ Fine-tune NVIDIA Nemotron models using LoRA (Low-Rank Adaptation) with PyTorch L
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone <[your-repo-url](https://github.com/auraecosystem/mamba_training.git)>
 cd mamba_training
 
 # Create conda environment
